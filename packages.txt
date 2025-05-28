@@ -1,2 +1,4 @@
 postgresql-client
-libpq-dev 
+libpq-dev
+python3-dev
+gcc 
