@@ -1,72 +1,61 @@
 import streamlit as st
-import psycopg2
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date, DateTime, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # Load environment variables
 load_dotenv()
 
-# Database connection parameters
-DB_PARAMS = {
-    'host': os.getenv('DB_HOST', 'localhost'),
-    'dbname': os.getenv('DB_NAME', 'your_database'),
-    'user': os.getenv('DB_USER', 'your_username'),
-    'password': os.getenv('DB_PASSWORD', 'your_password'),
-    'port': os.getenv('DB_PORT', '5432')
-}
+# Database configuration
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///ventas.db')
 
-def create_connection():
-    """Create a database connection"""
-    try:
-        conn = psycopg2.connect(**DB_PARAMS)
-        return conn
-    except Exception as e:
-        st.error(f"Error connecting to database: {str(e)}")
-        return None
+# Create SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
+Base = declarative_base()
+
+# Define the model
+class Venta(Base):
+    __tablename__ = 'ventas'
+    
+    id = Column(Integer, primary_key=True)
+    fecha = Column(Date)
+    apies = Column(String(10))
+    estacion_eess = Column(String(100))
+    codigo_producto = Column(String(10))
+    descripcion_producto = Column(String(100))
+    venta = Column(String(50))
+    volumen = Column(Float)
+    um_volumen = Column(String(20))
+    precio_unitario = Column(Float)
+    monto_bruto = Column(Float)
+    comision = Column(Float)
+    porcentaje_comision = Column(Float)
+    total_liquidar = Column(Float)
+    fecha_facturacion = Column(Date)
+    fecha_vencimiento = Column(Date)
+    rx = Column(String(20))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+# Create tables
+Base.metadata.create_all(engine)
+
+# Create session
+Session = sessionmaker(bind=engine)
 
 def insert_data(data):
     """Insert data into the database"""
-    conn = create_connection()
-    if conn is None:
-        return False
-    
     try:
-        cur = conn.cursor()
-        query = """
-        INSERT INTO ventas (
-            fecha, apies, estacion_eess, codigo_producto, descripcion_producto,
-            venta, volumen, um_volumen, precio_unitario, monto_bruto,
-            comision, porcentaje_comision, total_liquidar, fecha_facturacion,
-            fecha_vencimiento, rx
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cur.execute(query, (
-            data['fecha'],
-            data['apies'],
-            data['estacion_eess'],
-            data['codigo_producto'],
-            data['descripcion_producto'],
-            data['venta'],
-            data['volumen'],
-            data['um_volumen'],
-            data['precio_unitario'],
-            data['monto_bruto'],
-            data['comision'],
-            data['porcentaje_comision'],
-            data['total_liquidar'],
-            data['fecha_facturacion'],
-            data['fecha_vencimiento'],
-            data['rx']
-        ))
-        conn.commit()
-        cur.close()
-        conn.close()
+        session = Session()
+        venta = Venta(**data)
+        session.add(venta)
+        session.commit()
+        session.close()
         return True
     except Exception as e:
         st.error(f"Error inserting data: {str(e)}")
-        if conn:
-            conn.close()
         return False
 
 def calculate_values(volumen, precio_unitario, porcentaje_comision):
