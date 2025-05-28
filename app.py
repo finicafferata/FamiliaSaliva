@@ -1,5 +1,5 @@
 import streamlit as st
-import sqlite3
+import psycopg2
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -7,159 +7,237 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Database configuration
-DB_PATH = os.getenv('DB_PATH', 'ventas.db')
+# Database connection parameters
+DB_PARAMS = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'dbname': os.getenv('DB_NAME', 'your_database'),
+    'user': os.getenv('DB_USER', 'your_username'),
+    'password': os.getenv('DB_PASSWORD', 'your_password'),
+    'port': os.getenv('DB_PORT', '5432')
+}
 
-def init_db():
-    """Initialize the database and create tables if they don't exist"""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    # Create table if it doesn't exist
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS ventas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha DATE,
-            apies TEXT,
-            estacion_eess TEXT,
-            codigo_producto TEXT,
-            descripcion_producto TEXT,
-            venta TEXT,
-            volumen REAL,
-            um_volumen TEXT,
-            precio_unitario REAL,
-            monto_bruto REAL,
-            comision REAL,
-            porcentaje_comision REAL,
-            total_liquidar REAL,
-            fecha_facturacion DATE,
-            fecha_vencimiento DATE,
-            rx TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    conn.commit()
-    conn.close()
-
-def insert_data(data):
-    """Insert data into the database"""
+def create_connection():
+    """Create a database connection"""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        c = conn.cursor()
-        
-        query = '''
-        INSERT INTO ventas (
-            fecha, apies, estacion_eess, codigo_producto, descripcion_producto,
-            venta, volumen, um_volumen, precio_unitario, monto_bruto,
-            comision, porcentaje_comision, total_liquidar, fecha_facturacion,
-            fecha_vencimiento, rx
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        '''
-        
-        values = (
+        conn = psycopg2.connect(**DB_PARAMS)
+        return conn
+    except Exception as e:
+        st.error(f"Error connecting to database: {str(e)}")
+        return None
+
+def insert_rx_data(data):
+    """Insert data into rx_data table"""
+    conn = create_connection()
+    if conn is None:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        query = """
+        INSERT INTO rx_data (
+            copetrol, fecha, producto, litros, importe, forma_de_pago,
+            cuil, dni, dominio, km, apellido_y_nombre, observaciones
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(query, (
+            data['copetrol'],
             data['fecha'],
-            data['apies'],
-            data['estacion_eess'],
-            data['codigo_producto'],
-            data['descripcion_producto'],
-            data['venta'],
-            data['volumen'],
-            data['um_volumen'],
-            data['precio_unitario'],
-            data['monto_bruto'],
-            data['comision'],
-            data['porcentaje_comision'],
-            data['total_liquidar'],
-            data['fecha_facturacion'],
-            data['fecha_vencimiento'],
-            data['rx']
-        )
-        
-        c.execute(query, values)
+            data['producto'],
+            data['litros'],
+            data['importe'],
+            data['forma_de_pago'],
+            data['cuil'],
+            data['dni'],
+            data['dominio'],
+            data['km'],
+            data['apellido_y_nombre'],
+            data['observaciones']
+        ))
         conn.commit()
+        cur.close()
         conn.close()
         return True
     except Exception as e:
         st.error(f"Error inserting data: {str(e)}")
+        if conn:
+            conn.close()
         return False
 
-def calculate_values(volumen, precio_unitario, porcentaje_comision):
-    """Calculate derived values"""
-    monto_bruto = volumen * precio_unitario
-    comision = monto_bruto * (porcentaje_comision / 100)
-    total_liquidar = monto_bruto + comision
-    return monto_bruto, comision, total_liquidar
+def insert_playa_data(data):
+    """Insert data into playa_data table"""
+    conn = create_connection()
+    if conn is None:
+        return False
+    
+    try:
+        cur = conn.cursor()
+        query = """
+        INSERT INTO playa_data (
+            fecha, turno, nombre, horario, producto, stock_inicial,
+            venta, precio, total, reposicion, stock_final, obs,
+            obs_playa, dif, tarj, efectivo, total_declarado,
+            firmado, obs_cierre
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cur.execute(query, (
+            data['fecha'],
+            data['turno'],
+            data['nombre'],
+            data['horario'],
+            data['producto'],
+            data['stock_inicial'],
+            data['venta'],
+            data['precio'],
+            data['total'],
+            data['reposicion'],
+            data['stock_final'],
+            data['obs'],
+            data['obs_playa'],
+            data['dif'],
+            data['tarj'],
+            data['efectivo'],
+            data['total_declarado'],
+            data['firmado'],
+            data['obs_cierre']
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Error inserting data: {str(e)}")
+        if conn:
+            conn.close()
+        return False
 
-def main():
-    # Initialize database
-    init_db()
+def rx_form():
+    """Form for RX data entry"""
+    st.subheader("Carga RX")
     
-    st.title("Sistema de Carga de Datos - Ventas YPF")
-    
-    # Create form
-    with st.form("venta_form"):
-        st.subheader("Ingrese los datos de la venta")
-        
+    with st.form("rx_form"):
         # Form fields
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            fecha = st.date_input("FECHA")
-            apies = st.text_input("APIES")
-            estacion_eess = st.text_input("ESTACIÓN EESS")
-            codigo_producto = st.text_input("CÓDIGO PRODUCTO")
-            descripcion_producto = st.text_input("DESCRIPCIÓN PRODUCTO")
-            venta = st.selectbox("VENTA", ["SURTIDOR Venta", "APP Venta"])
-            volumen = st.number_input("VOLUMEN", min_value=0.0, step=0.01)
-            um_volumen = st.text_input("UM (VOLUMEN)", value="Litros")
-            
-        with col2:
-            precio_unitario = st.number_input("PRECIO UNITARIO", min_value=0.0, step=0.01)
-            porcentaje_comision = st.number_input("PORCENTAJE DE COMISIÓN", step=0.01)
-            fecha_facturacion = st.date_input("FECHA DE FACTURACIÓN")
-            fecha_vencimiento = st.date_input("FECHA DE VENCIMIENTO")
-            rx = st.text_input("RX")
-            
-            # Calcular valores automáticamente
-            monto_bruto, comision, total_liquidar = calculate_values(
-                volumen, precio_unitario, porcentaje_comision
-            )
-            
-            # Mostrar valores calculados
-            st.metric("MONTO BRUTO", f"${monto_bruto:,.2f}")
-            st.metric("COMISIÓN", f"${comision:,.2f}")
-            st.metric("TOTAL A LIQUIDAR", f"${total_liquidar:,.2f}")
+        copetrol = st.text_input("COPETROL")
+        fecha = st.date_input("FECHA *", value=datetime.now())
+        producto = st.text_input("PRODUCTO *")
+        litros = st.number_input("LITROS *", min_value=0.0, step=0.01)
+        importe = st.number_input("IMPORTE *", min_value=0.0, step=0.01)
+        forma_de_pago = st.selectbox("FORMA DE PAGO *", ["EFECTIVO", "TARJETA", "TRANSFERENCIA"])
+        cuil = st.text_input("CUIL")
+        dni = st.text_input("DNI")
+        dominio = st.text_input("DOMINIO")
+        km = st.number_input("KM", min_value=0)
+        apellido_y_nombre = st.text_input("APELLIDO Y NOMBRE")
+        observaciones = st.text_area("OBSERVACIONES")
         
         # Submit button
         submitted = st.form_submit_button("Guardar")
         
         if submitted:
+            # Validate required fields
+            if not all([fecha, producto, litros, importe, forma_de_pago]):
+                st.error("Por favor complete todos los campos obligatorios (*)")
+                return
+            
             # Prepare data dictionary
             data = {
+                'copetrol': copetrol,
                 'fecha': fecha,
-                'apies': apies,
-                'estacion_eess': estacion_eess,
-                'codigo_producto': codigo_producto,
-                'descripcion_producto': descripcion_producto,
-                'venta': venta,
-                'volumen': volumen,
-                'um_volumen': um_volumen,
-                'precio_unitario': precio_unitario,
-                'monto_bruto': monto_bruto,
-                'comision': comision,
-                'porcentaje_comision': porcentaje_comision,
-                'total_liquidar': total_liquidar,
-                'fecha_facturacion': fecha_facturacion,
-                'fecha_vencimiento': fecha_vencimiento,
-                'rx': rx
+                'producto': producto,
+                'litros': litros,
+                'importe': importe,
+                'forma_de_pago': forma_de_pago,
+                'cuil': cuil,
+                'dni': dni,
+                'dominio': dominio,
+                'km': km,
+                'apellido_y_nombre': apellido_y_nombre,
+                'observaciones': observaciones
             }
             
             # Insert data
-            if insert_data(data):
+            if insert_rx_data(data):
                 st.success("¡Datos guardados exitosamente!")
             else:
                 st.error("Error al guardar los datos")
+
+def playa_form():
+    """Form for Playa data entry"""
+    st.subheader("Carga Playa")
+    
+    with st.form("playa_form"):
+        # Form fields
+        fecha = st.date_input("FECHA *", value=datetime.now())
+        turno = st.selectbox("TURNO *", ["MAÑANA", "TARDE", "NOCHE"])
+        nombre = st.text_input("NOMBRE")
+        horario = st.text_input("HORARIO")
+        producto = st.text_input("PRODUCTO *")
+        stock_inicial = st.number_input("STOCK INICIAL", min_value=0.0, step=0.01)
+        venta = st.number_input("VENTA *", min_value=0.0, step=0.01)
+        precio = st.number_input("PRECIO", min_value=0.0, step=0.01)
+        total = st.number_input("TOTAL *", min_value=0.0, step=0.01)
+        reposicion = st.number_input("REPOSICIÓN", min_value=0.0, step=0.01)
+        stock_final = st.number_input("STOCK FINAL", min_value=0.0, step=0.01)
+        obs = st.text_area("OBS")
+        obs_playa = st.text_area("OBS PLAYA")
+        dif = st.number_input("DIF", step=0.01)
+        tarj = st.number_input("TARJ", min_value=0.0, step=0.01)
+        efectivo = st.number_input("EFECTIVO", min_value=0.0, step=0.01)
+        total_declarado = st.number_input("TOTAL DECLARADO", min_value=0.0, step=0.01)
+        firmado = st.checkbox("FIRMADO")
+        obs_cierre = st.text_area("OBS CIERRE")
+        
+        # Submit button
+        submitted = st.form_submit_button("Guardar")
+        
+        if submitted:
+            # Validate required fields
+            if not all([fecha, turno, producto, venta, total]):
+                st.error("Por favor complete todos los campos obligatorios (*)")
+                return
+            
+            # Prepare data dictionary
+            data = {
+                'fecha': fecha,
+                'turno': turno,
+                'nombre': nombre,
+                'horario': horario,
+                'producto': producto,
+                'stock_inicial': stock_inicial,
+                'venta': venta,
+                'precio': precio,
+                'total': total,
+                'reposicion': reposicion,
+                'stock_final': stock_final,
+                'obs': obs,
+                'obs_playa': obs_playa,
+                'dif': dif,
+                'tarj': tarj,
+                'efectivo': efectivo,
+                'total_declarado': total_declarado,
+                'firmado': firmado,
+                'obs_cierre': obs_cierre
+            }
+            
+            # Insert data
+            if insert_playa_data(data):
+                st.success("¡Datos guardados exitosamente!")
+            else:
+                st.error("Error al guardar los datos")
+
+def main():
+    st.title("Sistema de Carga de Datos")
+    
+    # Sidebar navigation
+    page = st.sidebar.selectbox(
+        "Seleccione una opción",
+        ["Carga RX", "Carga Playa"]
+    )
+    
+    # Show selected page
+    if page == "Carga RX":
+        rx_form()
+    else:
+        playa_form()
 
 if __name__ == "__main__":
     main() 

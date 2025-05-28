@@ -1,36 +1,48 @@
-# Sistema de Carga de Datos - Ventas YPF
+# Sistema de Carga de Datos
 
-Aplicación web desarrollada con Streamlit para la carga y gestión de datos de ventas de YPF.
+Aplicación Streamlit para la carga de datos en dos tablas PostgreSQL: RX y Playa.
 
 ## Características
 
-- Interfaz de usuario intuitiva para carga de datos
-- Cálculos automáticos de montos y comisiones
-- Almacenamiento en base de datos SQLite (compatible con Streamlit Cloud)
-- Validación de datos en tiempo real
+- Interfaz de usuario intuitiva con Streamlit
+- Dos formularios separados para carga de datos RX y Playa
+- Validación de campos obligatorios
+- Conexión a base de datos PostgreSQL
+- Mensajes de confirmación al guardar datos
+- Navegación mediante sidebar
 
 ## Requisitos
 
 - Python 3.8+
+- PostgreSQL
 - Dependencias listadas en `requirements.txt`
 
 ## Instalación
 
 1. Clonar el repositorio:
 ```bash
-git clone [URL_DEL_REPOSITORIO]
-cd [NOMBRE_DEL_DIRECTORIO]
+git clone <url-del-repositorio>
+cd <nombre-del-directorio>
 ```
 
-2. Instalar dependencias:
+2. Crear y activar entorno virtual:
+```bash
+python -m venv venv
+source venv/bin/activate  # En Windows: venv\Scripts\activate
+```
+
+3. Instalar dependencias:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Configurar variables de entorno (opcional):
-Crear un archivo `.env` con las siguientes variables:
-```
-DATABASE_URL=sqlite:///ventas.db
+4. Configurar variables de entorno:
+   - Copiar `.env.example` a `.env`
+   - Modificar las variables con los datos de tu base de datos
+
+5. Crear las tablas en PostgreSQL:
+```bash
+psql -U tu_usuario -d tu_base_de_datos -f create_tables.sql
 ```
 
 ## Uso
@@ -40,25 +52,14 @@ DATABASE_URL=sqlite:///ventas.db
 streamlit run app.py
 ```
 
-2. Acceder a la aplicación en el navegador:
-```
-http://localhost:8501
-```
+2. Abrir el navegador en la URL mostrada (generalmente http://localhost:8501)
+
+3. Usar el menú lateral para navegar entre los formularios de carga
 
 ## Estructura del Proyecto
 
-- `app.py`: Aplicación principal de Streamlit
-- `requirements.txt`: Lista de dependencias de Python
-- `.env`: Archivo de configuración de variables de entorno (opcional)
-
-## Deployment en Streamlit Cloud
-
-La aplicación está configurada para funcionar directamente en Streamlit Cloud sin necesidad de configuración adicional. Los datos se almacenan en una base de datos SQLite.
-
-## Contribución
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request 
+- `app.py`: Aplicación principal
+- `create_tables.sql`: Script SQL para crear las tablas
+- `requirements.txt`: Dependencias del proyecto
+- `.env`: Variables de entorno (no incluido en el repositorio)
+- `.env.example`: Ejemplo de variables de entorno 
