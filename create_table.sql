@@ -1,0 +1,20 @@
+CREATE TABLE ventas (
+    id SERIAL PRIMARY KEY,
+    fecha DATE,
+    apies VARCHAR(10),
+    estacion_eess VARCHAR(100),
+    codigo_producto VARCHAR(10),
+    descripcion_producto VARCHAR(100),
+    venta VARCHAR(50),
+    volumen DECIMAL(10,2),
+    um_volumen VARCHAR(20),
+    precio_unitario DECIMAL(10,2),
+    monto_bruto DECIMAL(10,2),
+    comision DECIMAL(10,2),
+    porcentaje_comision DECIMAL(5,2),
+    total_liquidar DECIMAL(10,2),
+    fecha_facturacion DATE,
+    fecha_vencimiento DATE,
+    rx VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+); 
