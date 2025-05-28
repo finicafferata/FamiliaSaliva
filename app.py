@@ -3,6 +3,7 @@ import psycopg2
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+import sys
 
 # Load environment variables
 load_dotenv()
@@ -21,8 +22,12 @@ def create_connection():
     try:
         conn = psycopg2.connect(**DB_PARAMS)
         return conn
+    except psycopg2.OperationalError as e:
+        st.error(f"Error de conexión a la base de datos: {str(e)}")
+        st.error("Por favor, verifica que las variables de entorno estén configuradas correctamente.")
+        return None
     except Exception as e:
-        st.error(f"Error connecting to database: {str(e)}")
+        st.error(f"Error inesperado: {str(e)}")
         return None
 
 def insert_rx_data(data):
